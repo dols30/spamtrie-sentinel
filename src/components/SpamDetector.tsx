@@ -1,13 +1,15 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { spamTrie, sampleSpamMessages, sampleNormalMessages } from '../utils/trieStructure';
-import { Search, AlertTriangle, Check, Copy, RefreshCw } from 'lucide-react';
+import { Search, AlertTriangle, Check, Copy, RefreshCw, Database } from 'lucide-react';
 import ResultCard from './ResultCard';
+import { Button } from '@/components/ui/button';
 
 interface AnalysisResult {
   isSpam: boolean;
   score: number;
   detectedWords: string[];
+  detectedCategories?: Record<string, number>;
+  primaryCategory?: string;
   confidence: number;
   text: string;
   timestamp: Date;
@@ -20,6 +22,22 @@ const SpamDetector: React.FC = () => {
   const [history, setHistory] = useState<AnalysisResult[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showExamples, setShowExamples] = useState<boolean>(false);
+
+  // Load history from spamTrie statistics on first render
+  useEffect(() => {
+    const stats = spamTrie.getStatistics();
+    if (stats.history && stats.history.length > 0) {
+      setHistory(stats.history.map(item => ({
+        isSpam: item.isSpam,
+        score: 0,
+        detectedWords: item.detectedWords,
+        primaryCategory: item.category,
+        confidence: item.confidence,
+        text: item.text,
+        timestamp: item.timestamp
+      })).slice(0, 10)); // Show only last 10
+    }
+  }, []);
 
   const analyzeText = () => {
     if (!inputText.trim()) return;
@@ -36,7 +54,21 @@ const SpamDetector: React.FC = () => {
       };
       
       setResult(newResult);
-      setHistory(prev => [newResult, ...prev].slice(0, 10)); // Keep last 10 entries
+      
+      // Update local history from the trie's tracked history
+      const stats = spamTrie.getStatistics();
+      if (stats.history && stats.history.length > 0) {
+        setHistory(stats.history.map(item => ({
+          isSpam: item.isSpam,
+          score: 0,
+          detectedWords: item.detectedWords,
+          primaryCategory: item.category,
+          confidence: item.confidence,
+          text: item.text,
+          timestamp: item.timestamp
+        })).slice(0, 10)); // Show only last 10
+      }
+      
       setIsAnalyzing(false);
     }, 800);
   };
@@ -56,6 +88,14 @@ const SpamDetector: React.FC = () => {
     setShowExamples(false);
   };
 
+  const resetStatistics = () => {
+    if (window.confirm("Are you sure you want to reset all spam detection statistics? This cannot be undone.")) {
+      spamTrie.clearStatistics();
+      setHistory([]);
+      setResult(null);
+    }
+  };
+
   // Handle keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -67,6 +107,26 @@ const SpamDetector: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inputText]);
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'phishing': return 'Phishing Attempt';
+      case 'financial': return 'Financial Scam';
+      case 'promotional': return 'Promotional Spam';
+      case 'malware': return 'Potential Malware';
+      default: return 'Spam';
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'phishing': return 'text-blue-500';
+      case 'financial': return 'text-amber-500';
+      case 'promotional': return 'text-purple-500';
+      case 'malware': return 'text-red-600';
+      default: return 'text-destructive';
+    }
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
@@ -80,7 +140,7 @@ const SpamDetector: React.FC = () => {
               </p>
             </div>
             
-            <div className="relative">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={() => setShowExamples(!showExamples)}
                 className="text-sm text-primary hover:underline focus:outline-none"
@@ -88,8 +148,18 @@ const SpamDetector: React.FC = () => {
                 Load example
               </button>
               
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetStatistics} 
+                className="text-xs"
+              >
+                <Database className="h-3 w-3 mr-1" />
+                Reset Stats
+              </Button>
+              
               {showExamples && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-10 overflow-hidden glass animate-fade-in">
+                <div className="absolute right-0 mt-40 w-48 bg-white rounded-lg shadow-lg z-10 overflow-hidden glass animate-fade-in">
                   <div 
                     className="px-4 py-2 hover:bg-secondary/50 cursor-pointer transition-colors"
                     onClick={() => loadExample(true)}
@@ -184,10 +254,15 @@ const SpamDetector: React.FC = () => {
                     <p className="text-sm font-medium truncate max-w-md">
                       {item.text.substring(0, 50)}{item.text.length > 50 ? '...' : ''}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
                       {new Date(item.timestamp).toLocaleTimeString()} · 
                       {item.isSpam 
-                        ? ` Spam (${item.confidence}% confidence)` 
+                        ? <span>
+                            <span className={`font-medium ${item.primaryCategory ? getCategoryColor(item.primaryCategory) : ''}`}>
+                              {item.primaryCategory ? getCategoryLabel(item.primaryCategory) : 'Spam'} 
+                            </span>
+                            <span> ({item.confidence}% confidence)</span>
+                          </span>
                         : ' Not spam'
                       }
                     </p>
