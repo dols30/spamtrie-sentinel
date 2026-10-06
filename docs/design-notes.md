@@ -26,3 +26,7 @@ The TypeScript application check excludes unreferenced shadcn templates with und
 Created with the built-in image-generation tool. Final asset: public/images/sentinel-shield.webp. Transparent alpha retained, resized to 1000 pixels, and compressed to approximately 85 KB. Geist is self-hosted with its license in public/fonts.
 
 Prompt: Premium Apple-inspired website hero, isolated transparent 3D product sculpture. One rounded shield made from satin silver aluminum with an optical glass central face and an embossed silver checkmark. Three-quarter perspective, soft studio lighting, monochrome silver and graphite. No text, branding, UI, green, purple, glow, or extra objects. Fully transparent background.
+
+## Display and appearance updates
+
+The page width expands from 1080 to 1440 CSS pixels for larger monitors. Headings, artwork, controls, and supporting text scale together, with bounded font sizes and native text rendering after entrance animations. Light, Dark, and System choices use a persistent next-themes provider. The favicon reuses the actual Lucide shield glyph from the header, with SVG, multi-resolution ICO, and touch-icon versions.

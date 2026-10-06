@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from 'next-themes';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import RouteScroll from '@/components/RouteScroll';
 import Index from './pages/Index';
@@ -7,6 +8,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const App = () => (
+  <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem storageKey="spamtrie-theme" disableTransitionOnChange>
   <TooltipProvider>
     <BrowserRouter>
       <RouteScroll />
@@ -20,5 +22,6 @@ const App = () => (
       </Suspense>
     </BrowserRouter>
   </TooltipProvider>
+  </ThemeProvider>
 );
 export default App;

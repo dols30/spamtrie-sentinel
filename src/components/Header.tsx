@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Shield, Menu, X, ArrowUpRight } from 'lucide-react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
+import ThemeToggle from './ThemeToggle';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Dashboard', href: '/dashboard' },
@@ -22,6 +23,7 @@ const Header = () => {
           </nav>
           <div className="header-actions">
             <Link className="nav-cta" to={location.pathname === '/' ? '/#detector' : '/'}>Check a message <ArrowUpRight size={14} /></Link>
+            <ThemeToggle />
             <button className="icon-button menu-toggle" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} aria-controls="mobile-nav" onClick={() => setMenuOpen(!menuOpen)}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>

@@ -19,7 +19,7 @@ const Index = () => (
           </div>
         </div>
         <div className="hero-art">
-          <img src="/images/sentinel-shield.webp" alt="A sculpted silver and glass shield with an embossed checkmark" width="1000" height="1000" fetchPriority="high" />
+          <img src="/images/sentinel-shield.webp" alt="A sculpted silver and glass shield with an embossed checkmark" width="1000" height="1000" loading="eager" />
         </div>
       </section>
       <section id="detector" className="detector-section page-width" aria-labelledby="detector-heading">
