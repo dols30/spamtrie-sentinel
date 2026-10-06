@@ -1,292 +1,60 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { spamTrie, sampleSpamMessages, sampleNormalMessages } from '../utils/trieStructure';
-import { Search, AlertTriangle, Check, Copy, RefreshCw, Database } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowRight, ArrowUpRight, LockKeyhole, ShieldCheck, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { spamTrie, sampleSpamMessages, sampleNormalMessages } from '@/utils/trieStructure';
+import { useSpamStatistics } from '@/hooks/use-spam-statistics';
+import type { AnalysisResult } from '@/lib/analysis';
 import ResultCard from './ResultCard';
-import { Button } from '@/components/ui/button';
-
-interface AnalysisResult {
-  isSpam: boolean;
-  score: number;
-  detectedWords: string[];
-  detectedCategories?: Record<string, number>;
-  primaryCategory?: string;
-  confidence: number;
-  text: string;
-  timestamp: Date;
-}
-
-const SpamDetector: React.FC = () => {
-  const [inputText, setInputText] = useState<string>('');
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+const SpamDetector = () => {
+  const [inputText, setInputText] = useState('');
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [error, setError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showExamples, setShowExamples] = useState<boolean>(false);
-
-  // Load history from spamTrie statistics on first render
-  useEffect(() => {
-    const stats = spamTrie.getStatistics();
-    if (stats.history && stats.history.length > 0) {
-      setHistory(stats.history.map(item => ({
-        isSpam: item.isSpam,
-        score: 0,
-        detectedWords: item.detectedWords,
-        primaryCategory: item.category,
-        confidence: item.confidence,
-        text: item.text,
-        timestamp: item.timestamp
-      })).slice(0, 10)); // Show only last 10
-    }
-  }, []);
-
-  const analyzeText = () => {
-    if (!inputText.trim()) return;
-    
-    setIsAnalyzing(true);
-    
-    // Simulate processing delay for UX
-    setTimeout(() => {
-      const analysis = spamTrie.analyzeText(inputText);
-      const newResult = {
-        ...analysis,
-        text: inputText,
-        timestamp: new Date()
-      };
-      
-      setResult(newResult);
-      
-      // Update local history from the trie's tracked history
-      const stats = spamTrie.getStatistics();
-      if (stats.history && stats.history.length > 0) {
-        setHistory(stats.history.map(item => ({
-          isSpam: item.isSpam,
-          score: 0,
-          detectedWords: item.detectedWords,
-          primaryCategory: item.category,
-          confidence: item.confidence,
-          text: item.text,
-          timestamp: item.timestamp
-        })).slice(0, 10)); // Show only last 10
-      }
-      
-      setIsAnalyzing(false);
-    }, 800);
-  };
-
-  const handleReset = () => {
-    setInputText('');
+  const stats = useSpamStatistics();
+  const updateText = (text: string) => {
+    setInputText(text);
     setResult(null);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
+    setError('');
+  };
+  const analyze = () => {
+    if (!inputText.trim()) return;
+    try {
+      setResult({ ...spamTrie.analyzeText(inputText), text: inputText, timestamp: new Date() });
+      setError('');
+    } catch {
+      setError('This message could not be checked. Please try again.');
     }
   };
-
-  const loadExample = (isSpam: boolean) => {
-    const examples = isSpam ? sampleSpamMessages : sampleNormalMessages;
-    const randomIndex = Math.floor(Math.random() * examples.length);
-    setInputText(examples[randomIndex]);
-    setShowExamples(false);
+  const loadExample = (spam: boolean) => {
+    const examples = spam ? sampleSpamMessages : sampleNormalMessages;
+    updateText(examples[Math.floor(Math.random() * examples.length)]);
+    textareaRef.current?.focus({ preventScroll: true });
   };
-
-  const resetStatistics = () => {
-    if (window.confirm("Are you sure you want to reset all spam detection statistics? This cannot be undone.")) {
-      spamTrie.clearStatistics();
-      setHistory([]);
-      setResult(null);
-    }
-  };
-
-  // Handle keyboard shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        analyzeText();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inputText]);
-
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'phishing': return 'Phishing Attempt';
-      case 'financial': return 'Financial Scam';
-      case 'promotional': return 'Promotional Spam';
-      case 'malware': return 'Potential Malware';
-      default: return 'Spam';
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'phishing': return 'text-blue-500';
-      case 'financial': return 'text-amber-500';
-      case 'promotional': return 'text-purple-500';
-      case 'malware': return 'text-red-600';
-      default: return 'text-destructive';
-    }
-  };
-
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="glass rounded-2xl p-6 shadow-sm animate-scale-in">
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Spam Message Detector</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Enter an email or message to analyze for spam
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setShowExamples(!showExamples)}
-                className="text-sm text-primary hover:underline focus:outline-none"
-              >
-                Load example
-              </button>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={resetStatistics} 
-                className="text-xs"
-              >
-                <Database className="h-3 w-3 mr-1" />
-                Reset Stats
-              </Button>
-              
-              {showExamples && (
-                <div className="absolute right-0 mt-40 w-48 bg-white rounded-lg shadow-lg z-10 overflow-hidden glass animate-fade-in">
-                  <div 
-                    className="px-4 py-2 hover:bg-secondary/50 cursor-pointer transition-colors"
-                    onClick={() => loadExample(true)}
-                  >
-                    <div className="text-sm font-medium">Spam Example</div>
-                    <div className="text-xs text-muted-foreground">Load known spam message</div>
-                  </div>
-                  <div 
-                    className="px-4 py-2 hover:bg-secondary/50 cursor-pointer transition-colors"
-                    onClick={() => loadExample(false)}
-                  >
-                    <div className="text-sm font-medium">Normal Example</div>
-                    <div className="text-xs text-muted-foreground">Load normal message</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type or paste your message here..."
-              className="w-full h-40 p-4 rounded-lg border border-border bg-white/50 focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:outline-none resize-none transition-all"
-            />
-            
-            <div className="absolute bottom-3 right-3 flex space-x-2">
-              {inputText && (
-                <button
-                  onClick={handleReset}
-                  className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-                  title="Clear"
-                >
-                  <RefreshCw className="w-4 h-4 text-secondary-foreground" />
-                </button>
-              )}
-              
-              <button
-                onClick={analyzeText}
-                disabled={!inputText.trim() || isAnalyzing}
-                className={`px-4 py-2 rounded-full flex items-center space-x-2 transition-all ${
-                  !inputText.trim() || isAnalyzing 
-                    ? 'bg-secondary text-secondary-foreground cursor-not-allowed' 
-                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                }`}
-              >
-                {isAnalyzing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    <span>Analyze</span>
-                  </>
-                )}
-              </button>
-            </div>
-            
-            <div className="absolute bottom-3 left-3 text-xs text-muted-foreground">
-              {inputText && `${inputText.length} characters · Press ⌘+Enter to analyze`}
-            </div>
-          </div>
-        </div>
+    <>
+      <div className="detector-heading"><h2 id="detector-heading">Go ahead. Take a second look.</h2><span>No sign-up needed.</span></div>
+      <div className="detector-workspace">
+        <form className="message-composer" onSubmit={event => { event.preventDefault(); analyze(); }}>
+          <div className="composer-label"><label htmlFor="message">Your message</label>{inputText && <button type="button" className="icon-button" aria-label="Clear message" onClick={() => { updateText(''); textareaRef.current?.focus(); }}><X size={17} /></button>}</div>
+          <textarea id="message" name="message" ref={textareaRef} value={inputText} onChange={event => updateText(event.target.value)} placeholder="Paste an email, a text, or something that feels a little off…" aria-describedby="message-privacy" onKeyDown={event => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); analyze(); }
+          }} />
+          <div className="example-row"><span>Try an example</span><button type="button" onClick={() => loadExample(true)}>Suspicious <ArrowUpRight size={13} /></button><button type="button" onClick={() => loadExample(false)}>Everyday <ArrowUpRight size={13} /></button></div>
+          <div className="composer-bottom"><span className="character-count">{inputText.length.toLocaleString()} characters <kbd>⌘ / Ctrl ↵</kbd></span><button className="button-primary" type="submit" disabled={!inputText.trim()}>Analyze message <ArrowRight size={16} /></button></div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <p id="message-privacy" className="privacy-note"><LockKeyhole size={12} /> Processed on your device. Never uploaded.</p>
+        </form>
+        <aside className="result-panel" aria-label="Analysis result" aria-live="polite" aria-atomic="true">
+          {result ? <ResultCard key={result.timestamp.getTime()} result={result} /> : <div className="result-empty">
+            <div className="result-empty-icon"><ShieldCheck size={31} strokeWidth={1.3} /></div>
+            <span className="result-label">A little clarity awaits.</span>
+            <h3>Your result.<br />Without the guesswork.</h3>
+            <p>Check a message to see its spam signals and matched words.</p>
+          </div>}
+        </aside>
       </div>
-      
-      {result && <ResultCard result={result} />}
-      
-      {history.length > 0 && !result && (
-        <div className="mt-8 glass rounded-2xl p-6 animate-fade-in">
-          <h3 className="text-lg font-medium mb-4">Recent Analyses</h3>
-          <div className="space-y-2">
-            {history.map((item, index) => (
-              <div 
-                key={index}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary/30 cursor-pointer transition-colors"
-                onClick={() => {
-                  setInputText(item.text);
-                  setResult(item);
-                }}
-              >
-                <div className="flex items-center space-x-3">
-                  {item.isSpam ? (
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                  ) : (
-                    <Check className="w-5 h-5 text-green-500" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium truncate max-w-md">
-                      {item.text.substring(0, 50)}{item.text.length > 50 ? '...' : ''}
-                    </p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-2">
-                      {new Date(item.timestamp).toLocaleTimeString()} · 
-                      {item.isSpam 
-                        ? <span>
-                            <span className={`font-medium ${item.primaryCategory ? getCategoryColor(item.primaryCategory) : ''}`}>
-                              {item.primaryCategory ? getCategoryLabel(item.primaryCategory) : 'Spam'} 
-                            </span>
-                            <span> ({item.confidence}% confidence)</span>
-                          </span>
-                        : ' Not spam'
-                      }
-                    </p>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <button 
-                    className="p-1.5 rounded-full hover:bg-white/80"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(item.text);
-                    }}
-                    title="Copy message"
-                  >
-                    <Copy className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      <div className="detector-footnote"><span>{stats.totalMessages > 0 ? `${stats.totalMessages.toLocaleString()} ${stats.totalMessages === 1 ? 'message' : 'messages'} checked in this browser` : 'A fresh perspective on your next message.'}</span><Link className="text-link" to="/dashboard">View Dashboard <ArrowUpRight size={14} /></Link></div>
+    </>
   );
 };
-
 export default SpamDetector;

@@ -1,4 +1,10 @@
-// Class definition for TrieNode
+interface TrieStructure {
+  isEndOfWord: boolean;
+  spamScore: number;
+  category?: string;
+  children: Record<string, TrieStructure>;
+}
+
 class TrieNode {
   children: Map<string, TrieNode>;
   isEndOfWord: boolean;
@@ -213,7 +219,7 @@ export class Trie {
         
         // Convert string dates back to Date objects in history
         if (parsedStats.history) {
-          parsedStats.history = parsedStats.history.map((item: any) => ({
+          parsedStats.history = parsedStats.history.map((item: SpamStatistics['history'][number]) => ({
             ...item,
             timestamp: new Date(item.timestamp)
           }));
@@ -234,6 +240,7 @@ export class Trie {
     } catch (e) {
       console.error("Error saving statistics:", e);
     }
+    window.dispatchEvent(new Event('spamtrie:statistics'));
   }
 
   // Initialize the trie with spam words
@@ -278,9 +285,9 @@ export class Trie {
   }
 
   // For visualization: get the trie structure as a nested object
-  getStructure(): any {
-    const traverseNode = (node: TrieNode): any => {
-      const result: any = {
+  getStructure(): TrieStructure {
+    const traverseNode = (node: TrieNode): TrieStructure => {
+      const result: TrieStructure = {
         isEndOfWord: node.isEndOfWord,
         spamScore: node.spamScore,
         category: node.category,
